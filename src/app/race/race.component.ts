@@ -16,10 +16,11 @@ export class RaceComponent implements AfterViewInit {
   private trackMeshes: THREE.Mesh[] = [];
   private keys = { ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false };
   private speed = 0;
-  private maxSpeed = 0.2;
-  private acceleration = 0.01;
+  private maxSpeed = 1;
+  private acceleration = 0.02;
   private deceleration = 0.02;
   private turnSpeed = 0.03;
+  private offTrackDeceleration = 0.05;
 
   ngAfterViewInit(): void {
     this.initThreeJS();
@@ -65,8 +66,17 @@ export class RaceComponent implements AfterViewInit {
     { width: 10, length: 100, position: { x: 0, y: 0, z: -125 }, rotation: 0 },
     { width: 10, length: 100, position: { x: 10, y: 0, z: -225 }, rotation: 0 },
     { width: 20, length: 100, position: { x: 20, y: 0, z: -325 }, rotation: 0 },
-    
   ];
+
+  private updateTrack(): void {
+    const direction = new THREE.Vector3(0, 0, -1);
+    direction.applyQuaternion(this.car.quaternion);
+    direction.multiplyScalar(this.speed);
+  
+    for (const track of this.trackMeshes) {
+      track.position.add(direction);
+    }
+  }
 
   private createTrack(): void {
     const textureLoader = new THREE.TextureLoader();
@@ -105,8 +115,6 @@ export class RaceComponent implements AfterViewInit {
       fillMesh.position.set(segment1.position.x, segment1.position.y, segment1.position.z - segment1.length / 2 - distance / 2);
       this.scene.add(fillMesh);
       this.trackMeshes.push(fillMesh);
-
-
     }
 
     // Add the last track segment
@@ -121,11 +129,22 @@ export class RaceComponent implements AfterViewInit {
   }
 
   private createCar(): void {
+
+
+    
     const carGeometry = new THREE.BoxGeometry(1, 0.5, 2);
     const carMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
     this.car = new THREE.Mesh(carGeometry, carMaterial);
     this.car.position.set(0, 0.25, 0);
     this.scene.add(this.car);
+  }
+
+  private isCarOnTrack(): boolean {
+    const raycaster = new THREE.Raycaster();
+    const down = new THREE.Vector3(0, -1, 0);
+    raycaster.set(this.car.position, down);
+    const intersects = raycaster.intersectObjects(this.trackMeshes);
+    return intersects.length > 0;
   }
 
   private updateCar(): void {
@@ -134,7 +153,7 @@ export class RaceComponent implements AfterViewInit {
     } else {
       this.speed = Math.max(this.speed - this.deceleration, 0);
     }
-
+  
     if (this.keys.ArrowLeft) {
       this.car.rotation.y += this.turnSpeed;
     }
@@ -142,12 +161,15 @@ export class RaceComponent implements AfterViewInit {
       this.car.rotation.y -= this.turnSpeed;
     }
 
-    const direction = new THREE.Vector3(0, 0, 1);
-    direction.applyQuaternion(this.car.quaternion);
-    direction.multiplyScalar(this.speed);
-
-    this.car.position.add(direction);
-  }
+    if (!this.isCarOnTrack()) {
+      this.maxSpeed = 0.2;
+      // this.speed = Math.max(this.speed - this.offTrackDeceleration, 0);
+    } else {
+      this.maxSpeed = 1;
+    }
+    
+    this.updateTrack();
+    }
 
   private animate(): void {
     requestAnimationFrame(() => this.animate());

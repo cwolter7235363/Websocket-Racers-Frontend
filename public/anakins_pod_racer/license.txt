@@ -1,0 +1,11 @@
+Model Information:
+* title:	Anakins Pod Racer
+* source:	https://sketchfab.com/3d-models/anakins-pod-racer-dac6d14dcf914e88af8625b59f4020bc
+* author:	tutan09 (https://sketchfab.com/tutan09)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Anakins Pod Racer" (https://sketchfab.com/3d-models/anakins-pod-racer-dac6d14dcf914e88af8625b59f4020bc) by tutan09 (https://sketchfab.com/tutan09) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
