@@ -1,0 +1,12 @@
+<p>Waiting for Players</p>
+<ng-container *ngIf="players.length > 0; else Waiting">
+    <h2>Players</h2>
+    <ul>
+    <li *ngFor="let player of players">
+      <span>{{ player.playerName }} {{ player.ready ? "Ready" : "Not ready"  }}</span>
+    </li>
+  </ul>
+</ng-container>
+<ng-template #Waiting>
+  <span class="loading loading-infinity loading-lg"></span>
+</ng-template>
