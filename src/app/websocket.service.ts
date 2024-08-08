@@ -1,4 +1,5 @@
 import { Injectable, Signal, signal } from '@angular/core';
+import { Observable, Observer } from 'rxjs';
 
 @Injectable({
   providedIn: 'root'
@@ -10,28 +11,39 @@ export class WebsocketService {
 
   constructor() { }
 
-  connect(url: string): void {
-    this.socket = new WebSocket(url);
+  connect(url: string): Observable<Event> {
+    return new Observable((observer: Observer<Event>) => {
+      this.socket = new WebSocket(url);
 
-    this.socket.onopen = (event) => {
-      console.log('WebSocket connection opened:', event);
-      this.onOpenCallbacks.forEach(callback => callback());
-      this.onOpenCallbacks = [];
-    };
+      this.socket.onopen = (event) => {
+        console.log('WebSocket connection opened:', event);
+        observer.next(event);
+        this.onOpenCallbacks.forEach(callback => callback());
+        this.onOpenCallbacks = [];
+      };
 
-    this.socket.onmessage = (event) => {
-      console.log('WebSocket message received:', event.data);
-      debugger
-      this.messageSignal.set(JSON.parse(event.data));
-    };
+      this.socket.onmessage = (event) => {
+        console.log('WebSocket message received:', event.data);
+        this.messageSignal.set(JSON.parse(event.data));
+      };
 
-    this.socket.onclose = (event) => {
-      console.log('WebSocket connection closed:', event);
-    };
+      this.socket.onerror = (event) => {
+        console.error('WebSocket error:', event);
+        observer.error(event);
+      };
 
-    this.socket.onerror = (event) => {
-      console.error('WebSocket error:', event);
-    };
+      this.socket.onclose = (event) => {
+        console.log('WebSocket connection closed:', event);
+        observer.complete();
+      };
+
+      // Cleanup on unsubscribe
+      return () => {
+        if (this.socket) {
+          this.socket.close();
+        }
+      };
+    });
   }
 
   onOpen(callback: () => void): void {
@@ -50,7 +62,7 @@ export class WebsocketService {
 
   registerAsPlayer(playerName: string): void {
     this.onOpen(() => {
-      this.socket.send(JSON.stringify({ type: 'register', role: 'client', value: {playerName} }));
+      this.socket.send(JSON.stringify({ type: 'register', role: 'client', value: { playerName } }));
     });
   }
 
