@@ -1,5 +1,6 @@
 import { Component, AfterViewInit, HostListener } from '@angular/core';
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
 @Component({
   selector: 'app-race',
@@ -12,7 +13,7 @@ export class RaceComponent implements AfterViewInit {
   private scene!: THREE.Scene;
   private camera!: THREE.PerspectiveCamera;
   private renderer!: THREE.WebGLRenderer;
-  private car!: THREE.Mesh;
+  private car = new THREE.Object3D();
   private trackMeshes: THREE.Mesh[] = [];
   private keys = { ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false };
   private speed = 0;
@@ -21,11 +22,18 @@ export class RaceComponent implements AfterViewInit {
   private deceleration = 0.02;
   private turnSpeed = 0.03;
   private offTrackDeceleration = 0.05;
+  private loadingIndicator!: THREE.Mesh;
+
+  private carHoverOffset = 0;
+  private hoverSpeed = 0.15; // Adjust the speed of the hover effect
+  private hoverHeight = 0.1; // Adjust the height of the hover effect
+
 
   ngAfterViewInit(): void {
     this.initThreeJS();
     this.createTrack();
-    this.createCar();
+    this.createLoadingIndicator();
+    this.loadCarModel();
     this.animate();
   }
 
@@ -128,15 +136,34 @@ export class RaceComponent implements AfterViewInit {
     this.trackMeshes.push(lastTrack);
   }
 
-  private createCar(): void {
+  private createLoadingIndicator(): void {
+    const indicatorGeometry = new THREE.BoxGeometry(1, 0.5, 2);
+    const indicatorMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+    this.loadingIndicator = new THREE.Mesh(indicatorGeometry, indicatorMaterial);
+    this.loadingIndicator.position.set(0, 0.25, 0);
+    this.scene.add(this.loadingIndicator);
+  }
 
-
+  private loadCarModel(): void {
+    const loader = new GLTFLoader();
+    loader.load('./anakins_pod_racer/scene.gltf', (gltf) => {
+      this.car = gltf.scene;
+      this.car.position.set(0, 1, 7);
+      // rotate the car model 90 degrees
+      this.car.rotation.y = Math.PI
+      // scale the car model down
+      this.car.scale.set(0.01, 0.01, 0.01);
     
-    const carGeometry = new THREE.BoxGeometry(1, 0.5, 2);
-    const carMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
-    this.car = new THREE.Mesh(carGeometry, carMaterial);
-    this.car.position.set(0, 0.25, 0);
-    this.scene.add(this.car);
+          // add a global light above the car
+    const globalLight = new THREE.DirectionalLight(0xffffff, 1);
+    globalLight.position.set(1, 20, 0); // Position the light above the car
+    this.scene.add(globalLight);
+
+      this.scene.remove(this.loadingIndicator);
+      this.scene.add(this.car);
+    }, undefined, (error) => {
+      console.error('An error happened while loading the car model:', error);
+    });
   }
 
   private isCarOnTrack(): boolean {
@@ -169,11 +196,33 @@ export class RaceComponent implements AfterViewInit {
     }
     
     this.updateTrack();
-    }
+  }
+
+  private applyHoverEffect(): void {
+    if (this.car) {
+      this.carHoverOffset += this.hoverSpeed;
+      const hoverY = Math.sin(this.carHoverOffset) * this.hoverHeight;
+      const randomHoverOffset = (Math.random() - 0.5) * 0.015; // Adjust the intensity of the random offset
+      this.car.position.y = 2 + hoverY + randomHoverOffset; // Adjust the base height as needed
+      }
+  }
 
   private animate(): void {
     requestAnimationFrame(() => this.animate());
     this.updateCar();
+    this.applyHoverEffect();
+    this.applyRandomWaggles();
     this.renderer.render(this.scene, this.camera);
   }
+
+  private applyRandomWaggles(): void {
+    if (this.car) {
+      const waggleIntensity = 0.01; // Adjust the intensity of the waggles
+      const randomX = (Math.random() - 0.5) * waggleIntensity;
+      const randomZ = (Math.random() - 0.5) * waggleIntensity;
+  
+      this.car.position.x += randomX;
+      this.car.position.z += randomZ;
+    }
+}
 }
