@@ -15,7 +15,7 @@ export class RaceComponent implements AfterViewInit {
   private renderer!: THREE.WebGLRenderer;
   private car = new THREE.Object3D();
   private trackMeshes: THREE.Mesh[] = [];
-  private keys = { ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false };
+  private keys = { ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false, KeyW: false, KeyA: false, KeyS: false, KeyD: false };
   private speed = 0;
   private maxSpeed = 1;
   private acceleration = 0.02;
@@ -25,16 +25,28 @@ export class RaceComponent implements AfterViewInit {
   private loadingIndicator!: THREE.Mesh;
 
   private carHoverOffset = 0;
-  private hoverSpeed = 0.15; // Adjust the speed of the hover effect
-  private hoverHeight = 0.1; // Adjust the height of the hover effect
+  private hoverSpeed = 0.15;
+  private hoverHeight = 0.1;
 
+  // Variables for gyroscope
+  private alpha = 0;
+  private beta = 0;
+  private gamma = 0;
+  private intervalId: any;
 
   ngAfterViewInit(): void {
     this.initThreeJS();
     this.createTrack();
     this.createLoadingIndicator();
     this.loadCarModel();
+    this.requestGyroscopeData();
     this.animate();
+  }
+
+  ngOnDestroy(): void {
+    if (this.intervalId) {
+      clearInterval(this.intervalId);
+    }
   }
 
   @HostListener('window:resize')
@@ -97,7 +109,6 @@ export class RaceComponent implements AfterViewInit {
       const segment1 = this.trackSegments[i];
       const segment2 = this.trackSegments[i + 1];
 
-      // Create the current track segment
       const trackGeometry = new THREE.PlaneGeometry(segment1.width, segment1.length);
       const trackMaterial = new THREE.MeshBasicMaterial({ map: trackTexture });
       const track = new THREE.Mesh(trackGeometry, trackMaterial);
@@ -106,17 +117,13 @@ export class RaceComponent implements AfterViewInit {
       this.scene.add(track);
       this.trackMeshes.push(track);
 
-      // get end corners of the current track segment
       const end1 = new THREE.Vector3(-segment1.width / 2, 0, segment1.length / 2);
       const end2 = new THREE.Vector3(segment1.width / 2, 0, segment1.length / 2);
 
-      // get start corners of the next track segment i.e. the closest corners to the current segment
       const start1 = new THREE.Vector3(-segment2.width / 2, 0, -segment2.length / 2);
       const start2 = new THREE.Vector3(segment2.width / 2, 0, -segment2.length / 2);
 
-      // calculate the angle between the two segments
       const angle = end1.angleTo(start1);
-      // calculate the distance between the two segments
       const distance = end1.distanceTo(start1);
       const fillMesh = new THREE.Mesh(new THREE.PlaneGeometry(segment1.width, distance), trackMaterial);
       fillMesh.rotation.x = -Math.PI / 2;
@@ -125,7 +132,6 @@ export class RaceComponent implements AfterViewInit {
       this.trackMeshes.push(fillMesh);
     }
 
-    // Add the last track segment
     const lastSegment = this.trackSegments[this.trackSegments.length - 1];
     const lastTrackGeometry = new THREE.PlaneGeometry(lastSegment.width, lastSegment.length);
     const lastTrackMaterial = new THREE.MeshBasicMaterial({ map: trackTexture });
@@ -149,15 +155,12 @@ export class RaceComponent implements AfterViewInit {
     loader.load('./anakins_pod_racer/scene.gltf', (gltf) => {
       this.car = gltf.scene;
       this.car.position.set(0, 1, 7);
-      // rotate the car model 90 degrees
-      this.car.rotation.y = Math.PI
-      // scale the car model down
+      this.car.rotation.y = Math.PI;
       this.car.scale.set(0.01, 0.01, 0.01);
-    
-          // add a global light above the car
-    const globalLight = new THREE.DirectionalLight(0xffffff, 1);
-    globalLight.position.set(1, 20, 0); // Position the light above the car
-    this.scene.add(globalLight);
+
+      const globalLight = new THREE.DirectionalLight(0xffffff, 1);
+      globalLight.position.set(1, 20, 0);
+      this.scene.add(globalLight);
 
       this.scene.remove(this.loadingIndicator);
       this.scene.add(this.car);
@@ -175,22 +178,21 @@ export class RaceComponent implements AfterViewInit {
   }
 
   private updateCar(): void {
-    if (this.keys.ArrowUp) {
+    if (this.keys.ArrowUp || this.keys.KeyW) {
       this.speed = Math.min(this.speed + this.acceleration, this.maxSpeed);
     } else {
       this.speed = Math.max(this.speed - this.deceleration, 0);
     }
   
-    if (this.keys.ArrowLeft) {
+    if (this.keys.ArrowLeft || this.keys.KeyA) {
       this.car.rotation.y += this.turnSpeed;
     }
-    if (this.keys.ArrowRight) {
+    if (this.keys.ArrowRight || this.keys.KeyD) {
       this.car.rotation.y -= this.turnSpeed;
     }
 
     if (!this.isCarOnTrack()) {
       this.maxSpeed = 0.2;
-      // this.speed = Math.max(this.speed - this.offTrackDeceleration, 0);
     } else {
       this.maxSpeed = 1;
     }
@@ -202,27 +204,27 @@ export class RaceComponent implements AfterViewInit {
     if (this.car) {
       this.carHoverOffset += this.hoverSpeed;
       const hoverY = Math.sin(this.carHoverOffset) * this.hoverHeight;
-      const randomHoverOffset = (Math.random() - 0.5) * 0.015; // Adjust the intensity of the random offset
+      const randomHoverOffset = (Math.random() - 0.5) * 0.015;
       this.car.position.y = 2 + hoverY + randomHoverOffset; // Adjust the base height as needed
-      }
-  }
-
-  private animate(): void {
-    requestAnimationFrame(() => this.animate());
-    this.updateCar();
-    this.applyHoverEffect();
-    this.applyRandomWaggles();
-    this.renderer.render(this.scene, this.camera);
-  }
-
-  private applyRandomWaggles(): void {
-    if (this.car) {
-      const waggleIntensity = 0.01; // Adjust the intensity of the waggles
-      const randomX = (Math.random() - 0.5) * waggleIntensity;
-      const randomZ = (Math.random() - 0.5) * waggleIntensity;
-  
-      this.car.position.x += randomX;
-      this.car.position.z += randomZ;
     }
+}
+
+private animate(): void {
+  requestAnimationFrame(() => this.animate());
+  this.updateCar();
+  this.applyHoverEffect();
+  this.applyRandomWaggles();
+  this.renderer.render(this.scene, this.camera);
+}
+
+private applyRandomWaggles(): void {
+  if (this.car) {
+    const waggleIntensity = 0.01; // Adjust the intensity of the waggles
+    const randomX = (Math.random() - 0.5) * waggleIntensity;
+    const randomZ = (Math.random() - 0.5) * waggleIntensity;
+
+    this.car.position.x += randomX;
+    this.car.position.z += randomZ;
+  }
 }
 }
